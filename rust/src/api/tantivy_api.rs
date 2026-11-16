@@ -12,7 +12,18 @@ use tantivy::{Index, IndexReader, IndexWriter, ReloadPolicy, TantivyDocument, Te
 pub struct Document {
     pub id: String,
     pub title: String,
-    pub content: String,
+    pub preview_text: String,
+    pub file_name: Option<String>,
+    pub is_pinned: bool,
+    pub created_at: i64,
+    pub updated_at: i64,
+}
+
+/// Everything the notes list and search results show.
+#[derive(Debug, Clone)]
+pub struct NoteMeta {
+    pub id: String,
+    pub title: String,
     pub preview_text: String,
     pub file_name: Option<String>,
     pub is_pinned: bool,
@@ -34,7 +45,6 @@ struct TantivyApi {
     reader: IndexReader,
     id_field: Field,
     title_field: Field,
-    content_field: Field,
     preview_text_field: Field,
     file_name_field: Field,
     is_pinned_field: Field,
@@ -44,53 +54,47 @@ struct TantivyApi {
 }
 
 impl TantivyApi {
-    fn extract_document(&self, retrieved_doc: &TantivyDocument) -> Document {
-        let id = retrieved_doc
-            .get_first(self.id_field)
-            .and_then(|v| v.as_str())
-            .unwrap_or_default()
-            .to_string();
-        let title = retrieved_doc
-            .get_first(self.title_field)
-            .and_then(|v| v.as_str())
-            .unwrap_or_default()
-            .to_string();
-        let content = retrieved_doc
-            .get_first(self.content_field)
-            .and_then(|v| v.as_str())
-            .unwrap_or_default()
-            .to_string();
-        let preview_text = retrieved_doc
-            .get_first(self.preview_text_field)
-            .and_then(|v| v.as_str())
-            .unwrap_or_default()
-            .to_string();
-        let file_name = retrieved_doc
-            .get_first(self.file_name_field)
-            .and_then(|v| v.as_str())
-            .map(|s| s.to_string());
-        let is_pinned = retrieved_doc
-            .get_first(self.is_pinned_field)
-            .and_then(|v| v.as_bool())
-            .unwrap_or(false);
-        let created_at = retrieved_doc
-            .get_first(self.created_at_field)
-            .and_then(|v| v.as_i64())
-            .unwrap_or(0);
-        let updated_at = retrieved_doc
-            .get_first(self.updated_at_field)
-            .and_then(|v| v.as_i64())
-            .unwrap_or(0);
+    fn extract_meta(&self, retrieved_doc: &TantivyDocument) -> NoteMeta {
+        let text = |field: Field| {
+            retrieved_doc
+                .get_first(field)
+                .and_then(|v| v.as_str())
+                .unwrap_or_default()
+                .to_string()
+        };
+        NoteMeta {
+            id: text(self.id_field),
+            title: text(self.title_field),
+            preview_text: text(self.preview_text_field),
+            file_name: retrieved_doc
+                .get_first(self.file_name_field)
+                .and_then(|v| v.as_str())
+                .map(|s| s.to_string()),
+            is_pinned: retrieved_doc
+                .get_first(self.is_pinned_field)
+                .and_then(|v| v.as_bool())
+                .unwrap_or(false),
+            created_at: retrieved_doc
+                .get_first(self.created_at_field)
+                .and_then(|v| v.as_i64())
+                .unwrap_or(0),
+            updated_at: retrieved_doc
+                .get_first(self.updated_at_field)
+                .and_then(|v| v.as_i64())
+                .unwrap_or(0),
+        }
+    }
 
+    fn extract_document(&self, retrieved_doc: &TantivyDocument) -> Document {
+        let meta = self.extract_meta(retrieved_doc);
         Document {
-            id,
-            title,
-            content,
-            preview_text,
-            file_name,
-            is_pinned,
-            created_at,
-            updated_at,
+            id: meta.id,
+            title: meta.title,
+            preview_text: meta.preview_text,
+            file_name: meta.file_name,
+            is_pinned: meta.is_pinned,
+            created_at: meta.created_at,
+            updated_at: meta.updated_at,
         }
     }
 
@@ -98,7 +102,6 @@ impl TantivyApi {
         let mut tantivy_doc = TantivyDocument::new();
         tantivy_doc.add_text(self.id_field, &doc.id);
         tantivy_doc.add_text(self.title_field, &doc.title);
-        tantivy_doc.add_text(self.content_field, &doc.content);
         tantivy_doc.add_text(self.preview_text_field, &doc.preview_text);
         if let Some(ref file_name) = doc.file_name {
             tantivy_doc.add_text(self.file_name_field, file_name);
@@ -118,7 +121,6 @@ impl TantivyApi {
 fn build_schema(builder: &mut SchemaBuilder) {
     builder.add_text_field("id", STRING | STORED);
     builder.add_text_field("title", TEXT | STORED);
-    builder.add_text_field("content", TEXT | STORED);
     builder.add_text_field("preview_text", STORED);
     builder.add_text_field("file_name", STORED);
     builder.add_bool_field("is_pinned", STORED | FAST);
@@ -146,7 +148,10 @@ pub fn init_tantivy(dir_path: String) -> Result<()> {
         // 기존 인덱스 열기
         let index = Index::open_in_dir(&index_dir)?;
         let schema = index.schema();
-        if schema.get_field("preview_text").is_err() || schema.get_field("sort_key").is_err() {
+        if schema.get_field("preview_text").is_err()
+            || schema.get_field("sort_key").is_err()
+            || schema.get_field("content").is_ok()
+        {
             drop(index);
             std::fs::remove_dir_all(&index_dir)?;
             std::fs::create_dir_all(&index_dir)?;
@@ -173,9 +178,6 @@ pub fn init_tantivy(dir_path: String) -> Result<()> {
     let title_field = schema
         .get_field("title")
         .map_err(|_| anyhow!("'title' field not found"))?;
-    let content_field = schema
-        .get_field("content")
-        .map_err(|_| anyhow!("'content' field not found"))?;
     let preview_text_field = schema
         .get_field("preview_text")
         .map_err(|_| anyhow!("'preview_text' field not found"))?;
@@ -195,7 +197,7 @@ pub fn init_tantivy(dir_path: String) -> Result<()> {
         .get_field("sort_key")
         .map_err(|_| anyhow!("'sort_key' field not found"))?;
 
-    let writer = index.writer(50_000_000)?; // 50MB heap
+    let writer = index.writer_with_num_threads(1, 15_000_000)?; // 1 thread, 15MB heap for embedded efficiency
 
     // Reader를 생성하고 OnCommit 정책으로 자동 리로드
     let reader = index
@@ -209,7 +211,6 @@ pub fn init_tantivy(dir_path: String) -> Result<()> {
         reader,
         id_field,
         title_field,
-        content_field,
         preview_text_field,
         file_name_field,
         is_pinned_field,
@@ -258,7 +259,7 @@ pub fn search_documents(query: String, top_k: usize) -> Result<Vec<SearchResult>
     // 전역 reader 재사용
     let searcher = api.reader.searcher();
 
-    let query_parser = QueryParser::for_index(&api.index, vec![api.title_field, api.content_field]);
+    let query_parser = QueryParser::for_index(&api.index, vec![api.title_field]);
     let parsed_query = query_parser.parse_query(&query)?;
 
     let top_docs = searcher.search(&parsed_query, &TopDocs::with_limit(top_k))?;
@@ -298,6 +299,52 @@ pub fn get_notes(skip: usize, take: usize) -> Result<Vec<Document>> {
     }
 
     Ok(docs)
+}
+
+/// Like [get_notes] (pinned first, then most recently updated), but returns
+/// only metadata.
+pub fn get_notes_metadata(skip: usize, take: usize) -> Result<Vec<NoteMeta>> {
+    let state_lock = STATE.lock().unwrap();
+    let api = state_lock
+        .as_ref()
+        .ok_or_else(|| anyhow!("Tantivy not initialized"))?;
+
+    api.reader.reload()?;
+    let searcher = api.reader.searcher();
+
+    let top_docs = TopDocs::with_limit(take)
+        .and_offset(skip)
+        .order_by_fast_field::<i64>("sort_key", tantivy::Order::Desc);
+    let results = searcher.search(&tantivy::query::AllQuery, &top_docs)?;
+
+    let mut metas = Vec::with_capacity(results.len());
+    for (_sort_key, doc_address) in results {
+        let retrieved_doc = searcher.doc::<TantivyDocument>(doc_address)?;
+        metas.push(api.extract_meta(&retrieved_doc));
+    }
+    Ok(metas)
+}
+
+/// Like [search_documents] (ordered by relevance), but returns only metadata.
+pub fn search_notes_metadata(query: String, top_k: usize) -> Result<Vec<NoteMeta>> {
+    let state_lock = STATE.lock().unwrap();
+    let api = state_lock
+        .as_ref()
+        .ok_or_else(|| anyhow!("Tantivy not initialized"))?;
+
+    api.reader.reload()?;
+    let searcher = api.reader.searcher();
+
+    let query_parser = QueryParser::for_index(&api.index, vec![api.title_field]);
+    let parsed_query = query_parser.parse_query(&query)?;
+    let top_docs = searcher.search(&parsed_query, &TopDocs::with_limit(top_k))?;
+
+    let mut metas = Vec::with_capacity(top_docs.len());
+    for (_score, doc_address) in top_docs {
+        let retrieved_doc = searcher.doc::<TantivyDocument>(doc_address)?;
+        metas.push(api.extract_meta(&retrieved_doc));
+    }
+    Ok(metas)
 }
 
 // [READ] ID로 특정 문서를 가져오는 함수

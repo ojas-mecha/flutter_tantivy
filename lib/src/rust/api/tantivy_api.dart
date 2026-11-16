@@ -6,9 +6,9 @@
 import '../frb_generated.dart';
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 
-// These functions are ignored because they are not marked as `pub`: `build_schema`, `extract_document`, `to_tantivy_doc`
+// These functions are ignored because they are not marked as `pub`: `build_schema`, `extract_document`, `extract_meta`, `to_tantivy_doc`
 // These types are ignored because they are neither used by any `pub` functions nor (for structs and enums) marked `#[frb(unignore)]`: `TantivyApi`
-// These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `clone`, `clone`, `fmt`, `fmt`
+// These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `clone`, `clone`, `clone`, `fmt`, `fmt`, `fmt`
 
 void initTantivy({required String dirPath}) =>
     RustLib.instance.api.crateApiTantivyApiInitTantivy(dirPath: dirPath);
@@ -26,6 +26,25 @@ Future<List<SearchResult>> searchDocuments({
 
 Future<List<Document>> getNotes({required BigInt skip, required BigInt take}) =>
     RustLib.instance.api.crateApiTantivyApiGetNotes(skip: skip, take: take);
+
+/// Like [get_notes] (pinned first, then most recently updated), but returns
+/// only metadata.
+Future<List<NoteMeta>> getNotesMetadata({
+  required BigInt skip,
+  required BigInt take,
+}) => RustLib.instance.api.crateApiTantivyApiGetNotesMetadata(
+  skip: skip,
+  take: take,
+);
+
+/// Like [search_documents] (ordered by relevance), but returns only metadata.
+Future<List<NoteMeta>> searchNotesMetadata({
+  required String query,
+  required BigInt topK,
+}) => RustLib.instance.api.crateApiTantivyApiSearchNotesMetadata(
+  query: query,
+  topK: topK,
+);
 
 Document? getDocumentById({required String id}) =>
     RustLib.instance.api.crateApiTantivyApiGetDocumentById(id: id);
@@ -56,7 +75,6 @@ Future<void> deleteDocumentNoCommit({required String id}) =>
 class Document {
   final String id;
   final String title;
-  final String content;
   final String previewText;
   final String? fileName;
   final bool isPinned;
@@ -66,7 +84,6 @@ class Document {
   const Document({
     required this.id,
     required this.title,
-    required this.content,
     required this.previewText,
     this.fileName,
     required this.isPinned,
@@ -78,7 +95,6 @@ class Document {
   int get hashCode =>
       id.hashCode ^
       title.hashCode ^
-      content.hashCode ^
       previewText.hashCode ^
       fileName.hashCode ^
       isPinned.hashCode ^
@@ -92,7 +108,50 @@ class Document {
           runtimeType == other.runtimeType &&
           id == other.id &&
           title == other.title &&
-          content == other.content &&
+          previewText == other.previewText &&
+          fileName == other.fileName &&
+          isPinned == other.isPinned &&
+          createdAt == other.createdAt &&
+          updatedAt == other.updatedAt;
+}
+
+/// Everything the notes list and search results show.
+class NoteMeta {
+  final String id;
+  final String title;
+  final String previewText;
+  final String? fileName;
+  final bool isPinned;
+  final PlatformInt64 createdAt;
+  final PlatformInt64 updatedAt;
+
+  const NoteMeta({
+    required this.id,
+    required this.title,
+    required this.previewText,
+    this.fileName,
+    required this.isPinned,
+    required this.createdAt,
+    required this.updatedAt,
+  });
+
+  @override
+  int get hashCode =>
+      id.hashCode ^
+      title.hashCode ^
+      previewText.hashCode ^
+      fileName.hashCode ^
+      isPinned.hashCode ^
+      createdAt.hashCode ^
+      updatedAt.hashCode;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is NoteMeta &&
+          runtimeType == other.runtimeType &&
+          id == other.id &&
+          title == other.title &&
           previewText == other.previewText &&
           fileName == other.fileName &&
           isPinned == other.isPinned &&
