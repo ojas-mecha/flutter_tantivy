@@ -658,16 +658,14 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   Document dco_decode_document(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     final arr = raw as List<dynamic>;
-    if (arr.length != 7)
-      throw Exception('unexpected arr length: expect 7 but see ${arr.length}');
+    if (arr.length != 5)
+      throw Exception('unexpected arr length: expect 5 but see ${arr.length}');
     return Document(
       id: dco_decode_String(arr[0]),
       title: dco_decode_String(arr[1]),
       previewText: dco_decode_String(arr[2]),
-      fileName: dco_decode_opt_String(arr[3]),
-      isPinned: dco_decode_bool(arr[4]),
-      createdAt: dco_decode_i_64(arr[5]),
-      updatedAt: dco_decode_i_64(arr[6]),
+      isPinned: dco_decode_bool(arr[3]),
+      updatedAt: dco_decode_i_64(arr[4]),
     );
   }
 
@@ -717,23 +715,15 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   NoteMeta dco_decode_note_meta(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     final arr = raw as List<dynamic>;
-    if (arr.length != 7)
-      throw Exception('unexpected arr length: expect 7 but see ${arr.length}');
+    if (arr.length != 5)
+      throw Exception('unexpected arr length: expect 5 but see ${arr.length}');
     return NoteMeta(
       id: dco_decode_String(arr[0]),
       title: dco_decode_String(arr[1]),
       previewText: dco_decode_String(arr[2]),
-      fileName: dco_decode_opt_String(arr[3]),
-      isPinned: dco_decode_bool(arr[4]),
-      createdAt: dco_decode_i_64(arr[5]),
-      updatedAt: dco_decode_i_64(arr[6]),
+      isPinned: dco_decode_bool(arr[3]),
+      updatedAt: dco_decode_i_64(arr[4]),
     );
-  }
-
-  @protected
-  String? dco_decode_opt_String(dynamic raw) {
-    // Codec=Dco (DartCObject based), see doc to use other codecs
-    return raw == null ? null : dco_decode_String(raw);
   }
 
   @protected
@@ -804,17 +794,13 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     var var_id = sse_decode_String(deserializer);
     var var_title = sse_decode_String(deserializer);
     var var_previewText = sse_decode_String(deserializer);
-    var var_fileName = sse_decode_opt_String(deserializer);
     var var_isPinned = sse_decode_bool(deserializer);
-    var var_createdAt = sse_decode_i_64(deserializer);
     var var_updatedAt = sse_decode_i_64(deserializer);
     return Document(
       id: var_id,
       title: var_title,
       previewText: var_previewText,
-      fileName: var_fileName,
       isPinned: var_isPinned,
-      createdAt: var_createdAt,
       updatedAt: var_updatedAt,
     );
   }
@@ -894,30 +880,15 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     var var_id = sse_decode_String(deserializer);
     var var_title = sse_decode_String(deserializer);
     var var_previewText = sse_decode_String(deserializer);
-    var var_fileName = sse_decode_opt_String(deserializer);
     var var_isPinned = sse_decode_bool(deserializer);
-    var var_createdAt = sse_decode_i_64(deserializer);
     var var_updatedAt = sse_decode_i_64(deserializer);
     return NoteMeta(
       id: var_id,
       title: var_title,
       previewText: var_previewText,
-      fileName: var_fileName,
       isPinned: var_isPinned,
-      createdAt: var_createdAt,
       updatedAt: var_updatedAt,
     );
-  }
-
-  @protected
-  String? sse_decode_opt_String(SseDeserializer deserializer) {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-
-    if (sse_decode_bool(deserializer)) {
-      return (sse_decode_String(deserializer));
-    } else {
-      return null;
-    }
   }
 
   @protected
@@ -998,9 +969,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     sse_encode_String(self.id, serializer);
     sse_encode_String(self.title, serializer);
     sse_encode_String(self.previewText, serializer);
-    sse_encode_opt_String(self.fileName, serializer);
     sse_encode_bool(self.isPinned, serializer);
-    sse_encode_i_64(self.createdAt, serializer);
     sse_encode_i_64(self.updatedAt, serializer);
   }
 
@@ -1074,20 +1043,8 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     sse_encode_String(self.id, serializer);
     sse_encode_String(self.title, serializer);
     sse_encode_String(self.previewText, serializer);
-    sse_encode_opt_String(self.fileName, serializer);
     sse_encode_bool(self.isPinned, serializer);
-    sse_encode_i_64(self.createdAt, serializer);
     sse_encode_i_64(self.updatedAt, serializer);
-  }
-
-  @protected
-  void sse_encode_opt_String(String? self, SseSerializer serializer) {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-
-    sse_encode_bool(self != null, serializer);
-    if (self != null) {
-      sse_encode_String(self, serializer);
-    }
   }
 
   @protected

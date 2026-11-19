@@ -76,18 +76,14 @@ class Document {
   final String id;
   final String title;
   final String previewText;
-  final String? fileName;
   final bool isPinned;
-  final PlatformInt64 createdAt;
   final PlatformInt64 updatedAt;
 
   const Document({
     required this.id,
     required this.title,
     required this.previewText,
-    this.fileName,
     required this.isPinned,
-    required this.createdAt,
     required this.updatedAt,
   });
 
@@ -96,9 +92,7 @@ class Document {
       id.hashCode ^
       title.hashCode ^
       previewText.hashCode ^
-      fileName.hashCode ^
       isPinned.hashCode ^
-      createdAt.hashCode ^
       updatedAt.hashCode;
 
   @override
@@ -109,9 +103,7 @@ class Document {
           id == other.id &&
           title == other.title &&
           previewText == other.previewText &&
-          fileName == other.fileName &&
           isPinned == other.isPinned &&
-          createdAt == other.createdAt &&
           updatedAt == other.updatedAt;
 }
 
@@ -120,18 +112,14 @@ class NoteMeta {
   final String id;
   final String title;
   final String previewText;
-  final String? fileName;
   final bool isPinned;
-  final PlatformInt64 createdAt;
   final PlatformInt64 updatedAt;
 
   const NoteMeta({
     required this.id,
     required this.title,
     required this.previewText,
-    this.fileName,
     required this.isPinned,
-    required this.createdAt,
     required this.updatedAt,
   });
 
@@ -140,9 +128,7 @@ class NoteMeta {
       id.hashCode ^
       title.hashCode ^
       previewText.hashCode ^
-      fileName.hashCode ^
       isPinned.hashCode ^
-      createdAt.hashCode ^
       updatedAt.hashCode;
 
   @override
@@ -153,9 +139,7 @@ class NoteMeta {
           id == other.id &&
           title == other.title &&
           previewText == other.previewText &&
-          fileName == other.fileName &&
           isPinned == other.isPinned &&
-          createdAt == other.createdAt &&
           updatedAt == other.updatedAt;
 }
 

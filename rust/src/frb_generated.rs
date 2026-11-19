@@ -665,17 +665,13 @@ impl SseDecode for crate::api::tantivy_api::Document {
         let mut var_id = <String>::sse_decode(deserializer);
         let mut var_title = <String>::sse_decode(deserializer);
         let mut var_previewText = <String>::sse_decode(deserializer);
-        let mut var_fileName = <Option<String>>::sse_decode(deserializer);
         let mut var_isPinned = <bool>::sse_decode(deserializer);
-        let mut var_createdAt = <i64>::sse_decode(deserializer);
         let mut var_updatedAt = <i64>::sse_decode(deserializer);
         return crate::api::tantivy_api::Document {
             id: var_id,
             title: var_title,
             preview_text: var_previewText,
-            file_name: var_fileName,
             is_pinned: var_isPinned,
-            created_at: var_createdAt,
             updated_at: var_updatedAt,
         };
     }
@@ -767,30 +763,15 @@ impl SseDecode for crate::api::tantivy_api::NoteMeta {
         let mut var_id = <String>::sse_decode(deserializer);
         let mut var_title = <String>::sse_decode(deserializer);
         let mut var_previewText = <String>::sse_decode(deserializer);
-        let mut var_fileName = <Option<String>>::sse_decode(deserializer);
         let mut var_isPinned = <bool>::sse_decode(deserializer);
-        let mut var_createdAt = <i64>::sse_decode(deserializer);
         let mut var_updatedAt = <i64>::sse_decode(deserializer);
         return crate::api::tantivy_api::NoteMeta {
             id: var_id,
             title: var_title,
             preview_text: var_previewText,
-            file_name: var_fileName,
             is_pinned: var_isPinned,
-            created_at: var_createdAt,
             updated_at: var_updatedAt,
         };
-    }
-}
-
-impl SseDecode for Option<String> {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
-        if (<bool>::sse_decode(deserializer)) {
-            return Some(<String>::sse_decode(deserializer));
-        } else {
-            return None;
-        }
     }
 }
 
@@ -935,9 +916,7 @@ impl flutter_rust_bridge::IntoDart for crate::api::tantivy_api::Document {
             self.id.into_into_dart().into_dart(),
             self.title.into_into_dart().into_dart(),
             self.preview_text.into_into_dart().into_dart(),
-            self.file_name.into_into_dart().into_dart(),
             self.is_pinned.into_into_dart().into_dart(),
-            self.created_at.into_into_dart().into_dart(),
             self.updated_at.into_into_dart().into_dart(),
         ]
         .into_dart()
@@ -961,9 +940,7 @@ impl flutter_rust_bridge::IntoDart for crate::api::tantivy_api::NoteMeta {
             self.id.into_into_dart().into_dart(),
             self.title.into_into_dart().into_dart(),
             self.preview_text.into_into_dart().into_dart(),
-            self.file_name.into_into_dart().into_dart(),
             self.is_pinned.into_into_dart().into_dart(),
-            self.created_at.into_into_dart().into_dart(),
             self.updated_at.into_into_dart().into_dart(),
         ]
         .into_dart()
@@ -1029,9 +1006,7 @@ impl SseEncode for crate::api::tantivy_api::Document {
         <String>::sse_encode(self.id, serializer);
         <String>::sse_encode(self.title, serializer);
         <String>::sse_encode(self.preview_text, serializer);
-        <Option<String>>::sse_encode(self.file_name, serializer);
         <bool>::sse_encode(self.is_pinned, serializer);
-        <i64>::sse_encode(self.created_at, serializer);
         <i64>::sse_encode(self.updated_at, serializer);
     }
 }
@@ -1106,20 +1081,8 @@ impl SseEncode for crate::api::tantivy_api::NoteMeta {
         <String>::sse_encode(self.id, serializer);
         <String>::sse_encode(self.title, serializer);
         <String>::sse_encode(self.preview_text, serializer);
-        <Option<String>>::sse_encode(self.file_name, serializer);
         <bool>::sse_encode(self.is_pinned, serializer);
-        <i64>::sse_encode(self.created_at, serializer);
         <i64>::sse_encode(self.updated_at, serializer);
-    }
-}
-
-impl SseEncode for Option<String> {
-    // Codec=Sse (Serialization based), see doc to use other codecs
-    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
-        <bool>::sse_encode(self.is_some(), serializer);
-        if let Some(value) = self {
-            <String>::sse_encode(value, serializer);
-        }
     }
 }
 

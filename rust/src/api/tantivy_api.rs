@@ -13,9 +13,7 @@ pub struct Document {
     pub id: String,
     pub title: String,
     pub preview_text: String,
-    pub file_name: Option<String>,
     pub is_pinned: bool,
-    pub created_at: i64,
     pub updated_at: i64,
 }
 
@@ -25,9 +23,7 @@ pub struct NoteMeta {
     pub id: String,
     pub title: String,
     pub preview_text: String,
-    pub file_name: Option<String>,
     pub is_pinned: bool,
-    pub created_at: i64,
     pub updated_at: i64,
 }
 
@@ -46,9 +42,7 @@ struct TantivyApi {
     id_field: Field,
     title_field: Field,
     preview_text_field: Field,
-    file_name_field: Field,
     is_pinned_field: Field,
-    created_at_field: Field,
     updated_at_field: Field,
     sort_key_field: Field,
 }
@@ -66,18 +60,10 @@ impl TantivyApi {
             id: text(self.id_field),
             title: text(self.title_field),
             preview_text: text(self.preview_text_field),
-            file_name: retrieved_doc
-                .get_first(self.file_name_field)
-                .and_then(|v| v.as_str())
-                .map(|s| s.to_string()),
             is_pinned: retrieved_doc
                 .get_first(self.is_pinned_field)
                 .and_then(|v| v.as_bool())
                 .unwrap_or(false),
-            created_at: retrieved_doc
-                .get_first(self.created_at_field)
-                .and_then(|v| v.as_i64())
-                .unwrap_or(0),
             updated_at: retrieved_doc
                 .get_first(self.updated_at_field)
                 .and_then(|v| v.as_i64())
@@ -91,9 +77,7 @@ impl TantivyApi {
             id: meta.id,
             title: meta.title,
             preview_text: meta.preview_text,
-            file_name: meta.file_name,
             is_pinned: meta.is_pinned,
-            created_at: meta.created_at,
             updated_at: meta.updated_at,
         }
     }
@@ -103,11 +87,7 @@ impl TantivyApi {
         tantivy_doc.add_text(self.id_field, &doc.id);
         tantivy_doc.add_text(self.title_field, &doc.title);
         tantivy_doc.add_text(self.preview_text_field, &doc.preview_text);
-        if let Some(ref file_name) = doc.file_name {
-            tantivy_doc.add_text(self.file_name_field, file_name);
-        }
         tantivy_doc.add_bool(self.is_pinned_field, doc.is_pinned);
-        tantivy_doc.add_i64(self.created_at_field, doc.created_at);
         tantivy_doc.add_i64(self.updated_at_field, doc.updated_at);
 
         let sort_key: i64 =
@@ -122,9 +102,7 @@ fn build_schema(builder: &mut SchemaBuilder) {
     builder.add_text_field("id", STRING | STORED);
     builder.add_text_field("title", TEXT | STORED);
     builder.add_text_field("preview_text", STORED);
-    builder.add_text_field("file_name", STORED);
     builder.add_bool_field("is_pinned", STORED | FAST);
-    builder.add_i64_field("created_at", STORED);
     builder.add_i64_field("updated_at", STORED | FAST);
     builder.add_i64_field("sort_key", FAST);
 }
@@ -151,6 +129,8 @@ pub fn init_tantivy(dir_path: String) -> Result<()> {
         if schema.get_field("preview_text").is_err()
             || schema.get_field("sort_key").is_err()
             || schema.get_field("content").is_ok()
+            || schema.get_field("file_name").is_ok()
+            || schema.get_field("created_at").is_ok()
         {
             drop(index);
             std::fs::remove_dir_all(&index_dir)?;
@@ -181,15 +161,9 @@ pub fn init_tantivy(dir_path: String) -> Result<()> {
     let preview_text_field = schema
         .get_field("preview_text")
         .map_err(|_| anyhow!("'preview_text' field not found"))?;
-    let file_name_field = schema
-        .get_field("file_name")
-        .map_err(|_| anyhow!("'file_name' field not found"))?;
     let is_pinned_field = schema
         .get_field("is_pinned")
         .map_err(|_| anyhow!("'is_pinned' field not found"))?;
-    let created_at_field = schema
-        .get_field("created_at")
-        .map_err(|_| anyhow!("'created_at' field not found"))?;
     let updated_at_field = schema
         .get_field("updated_at")
         .map_err(|_| anyhow!("'updated_at' field not found"))?;
@@ -212,9 +186,7 @@ pub fn init_tantivy(dir_path: String) -> Result<()> {
         id_field,
         title_field,
         preview_text_field,
-        file_name_field,
         is_pinned_field,
-        created_at_field,
         updated_at_field,
         sort_key_field,
     };

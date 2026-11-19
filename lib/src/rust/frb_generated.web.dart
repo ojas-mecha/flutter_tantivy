@@ -61,9 +61,6 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   NoteMeta dco_decode_note_meta(dynamic raw);
 
   @protected
-  String? dco_decode_opt_String(dynamic raw);
-
-  @protected
   Document? dco_decode_opt_box_autoadd_document(dynamic raw);
 
   @protected
@@ -118,9 +115,6 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   NoteMeta sse_decode_note_meta(SseDeserializer deserializer);
-
-  @protected
-  String? sse_decode_opt_String(SseDeserializer deserializer);
 
   @protected
   Document? sse_decode_opt_box_autoadd_document(SseDeserializer deserializer);
@@ -187,9 +181,6 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   void sse_encode_note_meta(NoteMeta self, SseSerializer serializer);
-
-  @protected
-  void sse_encode_opt_String(String? self, SseSerializer serializer);
 
   @protected
   void sse_encode_opt_box_autoadd_document(
