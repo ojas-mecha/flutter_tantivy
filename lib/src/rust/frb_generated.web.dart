@@ -49,16 +49,10 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   List<Document> dco_decode_list_document(dynamic raw);
 
   @protected
-  List<NoteMeta> dco_decode_list_note_meta(dynamic raw);
-
-  @protected
   Uint8List dco_decode_list_prim_u_8_strict(dynamic raw);
 
   @protected
   List<SearchResult> dco_decode_list_search_result(dynamic raw);
-
-  @protected
-  NoteMeta dco_decode_note_meta(dynamic raw);
 
   @protected
   Document? dco_decode_opt_box_autoadd_document(dynamic raw);
@@ -103,18 +97,12 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   List<Document> sse_decode_list_document(SseDeserializer deserializer);
 
   @protected
-  List<NoteMeta> sse_decode_list_note_meta(SseDeserializer deserializer);
-
-  @protected
   Uint8List sse_decode_list_prim_u_8_strict(SseDeserializer deserializer);
 
   @protected
   List<SearchResult> sse_decode_list_search_result(
     SseDeserializer deserializer,
   );
-
-  @protected
-  NoteMeta sse_decode_note_meta(SseDeserializer deserializer);
 
   @protected
   Document? sse_decode_opt_box_autoadd_document(SseDeserializer deserializer);
@@ -165,9 +153,6 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   void sse_encode_list_document(List<Document> self, SseSerializer serializer);
 
   @protected
-  void sse_encode_list_note_meta(List<NoteMeta> self, SseSerializer serializer);
-
-  @protected
   void sse_encode_list_prim_u_8_strict(
     Uint8List self,
     SseSerializer serializer,
@@ -178,9 +163,6 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
     List<SearchResult> self,
     SseSerializer serializer,
   );
-
-  @protected
-  void sse_encode_note_meta(NoteMeta self, SseSerializer serializer);
 
   @protected
   void sse_encode_opt_box_autoadd_document(
