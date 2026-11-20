@@ -578,14 +578,15 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   Document dco_decode_document(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     final arr = raw as List<dynamic>;
-    if (arr.length != 5)
-      throw Exception('unexpected arr length: expect 5 but see ${arr.length}');
+    if (arr.length != 6)
+      throw Exception('unexpected arr length: expect 6 but see ${arr.length}');
     return Document(
       id: dco_decode_String(arr[0]),
       title: dco_decode_String(arr[1]),
-      previewText: dco_decode_String(arr[2]),
-      isPinned: dco_decode_bool(arr[3]),
-      updatedAt: dco_decode_i_64(arr[4]),
+      content: dco_decode_String(arr[2]),
+      previewText: dco_decode_String(arr[3]),
+      isPinned: dco_decode_bool(arr[4]),
+      updatedAt: dco_decode_i_64(arr[5]),
     );
   }
 
@@ -692,12 +693,14 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     // Codec=Sse (Serialization based), see doc to use other codecs
     var var_id = sse_decode_String(deserializer);
     var var_title = sse_decode_String(deserializer);
+    var var_content = sse_decode_String(deserializer);
     var var_previewText = sse_decode_String(deserializer);
     var var_isPinned = sse_decode_bool(deserializer);
     var var_updatedAt = sse_decode_i_64(deserializer);
     return Document(
       id: var_id,
       title: var_title,
+      content: var_content,
       previewText: var_previewText,
       isPinned: var_isPinned,
       updatedAt: var_updatedAt,
@@ -838,6 +841,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     // Codec=Sse (Serialization based), see doc to use other codecs
     sse_encode_String(self.id, serializer);
     sse_encode_String(self.title, serializer);
+    sse_encode_String(self.content, serializer);
     sse_encode_String(self.previewText, serializer);
     sse_encode_bool(self.isPinned, serializer);
     sse_encode_i_64(self.updatedAt, serializer);

@@ -14,6 +14,7 @@ use tantivy::{
 pub struct Document {
     pub id: String,
     pub title: String,
+    pub content: String,
     pub preview_text: String,
     pub is_pinned: bool,
     pub updated_at: i64,
@@ -33,6 +34,7 @@ struct TantivyApi {
     reader: IndexReader,
     id_field: Field,
     title_field: Field,
+    content_field: Field,
     preview_text_field: Field,
     is_pinned_field: Field,
     updated_at_field: Field,
@@ -61,6 +63,7 @@ impl TantivyApi {
         Document {
             id: text(self.id_field),
             title: text(self.title_field),
+            content: text(self.content_field),
             preview_text: text(self.preview_text_field),
             is_pinned: retrieved_doc
                 .get_first(self.is_pinned_field)
@@ -77,6 +80,7 @@ impl TantivyApi {
         let mut tantivy_doc = TantivyDocument::new();
         tantivy_doc.add_text(self.id_field, &doc.id);
         tantivy_doc.add_text(self.title_field, &doc.title);
+        tantivy_doc.add_text(self.content_field, &doc.content);
         tantivy_doc.add_text(self.preview_text_field, &doc.preview_text);
         tantivy_doc.add_bool(self.is_pinned_field, doc.is_pinned);
         tantivy_doc.add_i64(self.updated_at_field, doc.updated_at);
@@ -112,6 +116,7 @@ fn build_schema() -> Schema {
     let mut builder = Schema::builder();
     builder.add_text_field("id", STRING | STORED);
     builder.add_text_field("title", TEXT | STORED);
+    builder.add_text_field("content", TEXT);
     builder.add_text_field("preview_text", STORED);
     builder.add_bool_field("is_pinned", STORED | FAST);
     builder.add_i64_field("updated_at", STORED | FAST);
@@ -123,7 +128,9 @@ fn build_schema() -> Schema {
 fn is_current_schema(schema: &Schema) -> bool {
     schema.get_field("preview_text").is_ok()
         && schema.get_field("sort_key").is_ok()
-        && schema.get_field("content").is_err()
+        && schema
+            .get_field("content")
+            .is_ok_and(|f| !schema.get_field_entry(f).is_stored())
         && schema.get_field("file_name").is_err()
         && schema.get_field("created_at").is_err()
 }
@@ -189,6 +196,7 @@ pub fn init_tantivy(dir_path: String) -> Result<()> {
     let api = TantivyApi {
         id_field: field("id")?,
         title_field: field("title")?,
+        content_field: field("content")?,
         preview_text_field: field("preview_text")?,
         is_pinned_field: field("is_pinned")?,
         updated_at_field: field("updated_at")?,
@@ -214,7 +222,8 @@ pub fn add_document(doc: Document) -> Result<()> {
 pub fn search_documents(query: String, top_k: usize) -> Result<Vec<SearchResult>> {
     with_api(|api| {
         let searcher = api.searcher()?;
-        let query_parser = QueryParser::for_index(&api.index, vec![api.title_field]);
+        let query_parser =
+            QueryParser::for_index(&api.index, vec![api.title_field, api.content_field]);
         let parsed_query = query_parser.parse_query(&query)?;
         let top_docs = searcher.search(&parsed_query, &TopDocs::with_limit(top_k))?;
 

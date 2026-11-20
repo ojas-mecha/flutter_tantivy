@@ -57,6 +57,7 @@ Future<void> deleteDocumentNoCommit({required String id}) =>
 class Document {
   final String id;
   final String title;
+  final String content;
   final String previewText;
   final bool isPinned;
   final PlatformInt64 updatedAt;
@@ -64,6 +65,7 @@ class Document {
   const Document({
     required this.id,
     required this.title,
+    required this.content,
     required this.previewText,
     required this.isPinned,
     required this.updatedAt,
@@ -73,6 +75,7 @@ class Document {
   int get hashCode =>
       id.hashCode ^
       title.hashCode ^
+      content.hashCode ^
       previewText.hashCode ^
       isPinned.hashCode ^
       updatedAt.hashCode;
@@ -84,6 +87,7 @@ class Document {
           runtimeType == other.runtimeType &&
           id == other.id &&
           title == other.title &&
+          content == other.content &&
           previewText == other.previewText &&
           isPinned == other.isPinned &&
           updatedAt == other.updatedAt;
