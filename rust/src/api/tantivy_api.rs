@@ -221,9 +221,14 @@ pub fn add_document(doc: Document) -> Result<()> {
 // [READ] 쿼리로 문서를 검색하는 함수 (관련도 순)
 pub fn search_documents(query: String, top_k: usize) -> Result<Vec<SearchResult>> {
     with_api(|api| {
+        if top_k == 0 {
+            return Ok(Vec::new());
+        }
         let searcher = api.searcher()?;
-        let query_parser =
+        let mut query_parser =
             QueryParser::for_index(&api.index, vec![api.title_field, api.content_field]);
+        query_parser.set_field_fuzzy(api.title_field, true, 1, true);
+        query_parser.set_field_fuzzy(api.content_field, true, 1, true);
         let parsed_query = query_parser.parse_query(&query)?;
         let top_docs = searcher.search(&parsed_query, &TopDocs::with_limit(top_k))?;
 
@@ -342,4 +347,56 @@ pub fn delete_document_no_commit(id: String) -> Result<()> {
         writer.delete_term(api.id_term(&id));
         Ok(())
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn temp_test_dir(name: &str) -> String {
+        let dir = std::env::temp_dir().join(format!("tantivy_test_{}_{}", name, std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        dir.to_string_lossy().to_string()
+    }
+
+    #[test]
+    fn test_fuzzy_and_prefix_search() {
+        let path = temp_test_dir("fuzzy");
+        init_tantivy(path.clone()).unwrap();
+
+        let doc = Document {
+            id: "doc1".to_string(),
+            title: "Meeting Notes".to_string(),
+            content: "Discussing quarterly flutter release".to_string(),
+            preview_text: "Meeting notes preview".to_string(),
+            is_pinned: false,
+            updated_at: 100,
+        };
+        add_document(doc).unwrap();
+
+        // 1. Exact match
+        let res = search_documents("meeting".to_string(), 10).unwrap();
+        assert_eq!(res.len(), 1);
+        assert_eq!(res[0].doc.id, "doc1");
+
+        // 2. Prefix search (search-as-you-type)
+        let res = search_documents("meet".to_string(), 10).unwrap();
+        assert_eq!(res.len(), 1, "prefix 'meet' should match 'Meeting'");
+
+        let res = search_documents("flutt".to_string(), 10).unwrap();
+        assert_eq!(res.len(), 1, "prefix 'flutt' should match 'flutter'");
+
+        // 3. Fuzzy typo search (1 edit distance)
+        let res = search_documents("meating".to_string(), 10).unwrap();
+        assert_eq!(res.len(), 1, "typo 'meating' should match 'Meeting'");
+
+        let res = search_documents("fluttr".to_string(), 10).unwrap();
+        assert_eq!(res.len(), 1, "typo 'fluttr' should match 'flutter'");
+
+        // 4. top_k = 0 should return empty list without crashing
+        let res = search_documents("meeting".to_string(), 0).unwrap();
+        assert_eq!(res.len(), 0);
+
+        let _ = std::fs::remove_dir_all(path);
+    }
 }
