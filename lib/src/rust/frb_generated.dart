@@ -5,11 +5,14 @@
 
 import 'api/simple.dart';
 import 'api/tantivy_api.dart';
+
 import 'dart:async';
 import 'dart:convert';
+
 import 'frb_generated.dart';
 import 'frb_generated.io.dart'
     if (dart.library.js_interop) 'frb_generated.web.dart';
+
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 
 /// Main entrypoint of the Rust API
@@ -627,6 +630,12 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  String? dco_decode_opt_String(dynamic raw) {
+    // Codec=Dco (DartCObject based), see doc to use other codecs
+    return raw == null ? null : dco_decode_String(raw);
+  }
+
+  @protected
   Document? dco_decode_opt_box_autoadd_document(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     return raw == null ? null : dco_decode_box_autoadd_document(raw);
@@ -636,11 +645,12 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   SearchResult dco_decode_search_result(dynamic raw) {
     // Codec=Dco (DartCObject based), see doc to use other codecs
     final arr = raw as List<dynamic>;
-    if (arr.length != 2)
-      throw Exception('unexpected arr length: expect 2 but see ${arr.length}');
+    if (arr.length != 3)
+      throw Exception('unexpected arr length: expect 3 but see ${arr.length}');
     return SearchResult(
       score: dco_decode_f_32(arr[0]),
       doc: dco_decode_document(arr[1]),
+      snippet: dco_decode_opt_String(arr[2]),
     );
   }
 
@@ -765,6 +775,17 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  String? sse_decode_opt_String(SseDeserializer deserializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    if (sse_decode_bool(deserializer)) {
+      return (sse_decode_String(deserializer));
+    } else {
+      return null;
+    }
+  }
+
+  @protected
   Document? sse_decode_opt_box_autoadd_document(SseDeserializer deserializer) {
     // Codec=Sse (Serialization based), see doc to use other codecs
 
@@ -780,7 +801,8 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     // Codec=Sse (Serialization based), see doc to use other codecs
     var var_score = sse_decode_f_32(deserializer);
     var var_doc = sse_decode_document(deserializer);
-    return SearchResult(score: var_score, doc: var_doc);
+    var var_snippet = sse_decode_opt_String(deserializer);
+    return SearchResult(score: var_score, doc: var_doc, snippet: var_snippet);
   }
 
   @protected
@@ -900,6 +922,16 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
   }
 
   @protected
+  void sse_encode_opt_String(String? self, SseSerializer serializer) {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+
+    sse_encode_bool(self != null, serializer);
+    if (self != null) {
+      sse_encode_String(self, serializer);
+    }
+  }
+
+  @protected
   void sse_encode_opt_box_autoadd_document(
     Document? self,
     SseSerializer serializer,
@@ -917,6 +949,7 @@ class RustLibApiImpl extends RustLibApiImplPlatform implements RustLibApi {
     // Codec=Sse (Serialization based), see doc to use other codecs
     sse_encode_f_32(self.score, serializer);
     sse_encode_document(self.doc, serializer);
+    sse_encode_opt_String(self.snippet, serializer);
   }
 
   @protected

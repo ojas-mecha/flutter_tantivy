@@ -671,6 +671,17 @@ impl SseDecode for Vec<crate::api::tantivy_api::SearchResult> {
     }
 }
 
+impl SseDecode for Option<String> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
+        if (<bool>::sse_decode(deserializer)) {
+            return Some(<String>::sse_decode(deserializer));
+        } else {
+            return None;
+        }
+    }
+}
+
 impl SseDecode for Option<crate::api::tantivy_api::Document> {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
@@ -689,9 +700,11 @@ impl SseDecode for crate::api::tantivy_api::SearchResult {
     fn sse_decode(deserializer: &mut flutter_rust_bridge::for_generated::SseDeserializer) -> Self {
         let mut var_score = <f32>::sse_decode(deserializer);
         let mut var_doc = <crate::api::tantivy_api::Document>::sse_decode(deserializer);
+        let mut var_snippet = <Option<String>>::sse_decode(deserializer);
         return crate::api::tantivy_api::SearchResult {
             score: var_score,
             doc: var_doc,
+            snippet: var_snippet,
         };
     }
 }
@@ -824,6 +837,7 @@ impl flutter_rust_bridge::IntoDart for crate::api::tantivy_api::SearchResult {
         [
             self.score.into_into_dart().into_dart(),
             self.doc.into_into_dart().into_dart(),
+            self.snippet.into_into_dart().into_dart(),
         ]
         .into_dart()
     }
@@ -927,6 +941,16 @@ impl SseEncode for Vec<crate::api::tantivy_api::SearchResult> {
     }
 }
 
+impl SseEncode for Option<String> {
+    // Codec=Sse (Serialization based), see doc to use other codecs
+    fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
+        <bool>::sse_encode(self.is_some(), serializer);
+        if let Some(value) = self {
+            <String>::sse_encode(value, serializer);
+        }
+    }
+}
+
 impl SseEncode for Option<crate::api::tantivy_api::Document> {
     // Codec=Sse (Serialization based), see doc to use other codecs
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
@@ -942,6 +966,7 @@ impl SseEncode for crate::api::tantivy_api::SearchResult {
     fn sse_encode(self, serializer: &mut flutter_rust_bridge::for_generated::SseSerializer) {
         <f32>::sse_encode(self.score, serializer);
         <crate::api::tantivy_api::Document>::sse_encode(self.doc, serializer);
+        <Option<String>>::sse_encode(self.snippet, serializer);
     }
 }
 

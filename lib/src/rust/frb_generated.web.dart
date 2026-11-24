@@ -8,9 +8,12 @@
 
 import 'api/simple.dart';
 import 'api/tantivy_api.dart';
+
 import 'dart:async';
 import 'dart:convert';
+
 import 'frb_generated.dart';
+
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated_web.dart';
 
 abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
@@ -53,6 +56,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
 
   @protected
   List<SearchResult> dco_decode_list_search_result(dynamic raw);
+
+  @protected
+  String? dco_decode_opt_String(dynamic raw);
 
   @protected
   Document? dco_decode_opt_box_autoadd_document(dynamic raw);
@@ -103,6 +109,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
   List<SearchResult> sse_decode_list_search_result(
     SseDeserializer deserializer,
   );
+
+  @protected
+  String? sse_decode_opt_String(SseDeserializer deserializer);
 
   @protected
   Document? sse_decode_opt_box_autoadd_document(SseDeserializer deserializer);
@@ -163,6 +172,9 @@ abstract class RustLibApiImplPlatform extends BaseApiImpl<RustLibWire> {
     List<SearchResult> self,
     SseSerializer serializer,
   );
+
+  @protected
+  void sse_encode_opt_String(String? self, SseSerializer serializer);
 
   @protected
   void sse_encode_opt_box_autoadd_document(

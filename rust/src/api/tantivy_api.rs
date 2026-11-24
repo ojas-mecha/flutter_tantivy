@@ -25,6 +25,7 @@ pub struct Document {
 pub struct SearchResult {
     pub score: f32,
     pub doc: Document,
+    pub snippet: Option<String>,
 }
 
 // Tantivy의 핵심 로직을 관리하는 구조체
@@ -116,7 +117,7 @@ fn build_schema() -> Schema {
     let mut builder = Schema::builder();
     builder.add_text_field("id", STRING | STORED);
     builder.add_text_field("title", TEXT | STORED);
-    builder.add_text_field("content", TEXT);
+    builder.add_text_field("content", TEXT | STORED);
     builder.add_text_field("preview_text", STORED);
     builder.add_bool_field("is_pinned", STORED | FAST);
     builder.add_i64_field("updated_at", STORED | FAST);
@@ -130,7 +131,7 @@ fn is_current_schema(schema: &Schema) -> bool {
         && schema.get_field("sort_key").is_ok()
         && schema
             .get_field("content")
-            .is_ok_and(|f| !schema.get_field_entry(f).is_stored())
+            .is_ok_and(|f| schema.get_field_entry(f).is_stored())
         && schema.get_field("file_name").is_err()
         && schema.get_field("created_at").is_err()
 }
@@ -218,6 +219,217 @@ pub fn add_document(doc: Document) -> Result<()> {
     add_documents_batch(vec![doc])
 }
 
+use std::ops::Range;
+
+#[inline]
+fn edit_distance_le_one(a: &[u8], b: &[u8]) -> bool {
+    let m = a.len();
+    let n = b.len();
+
+    if (m as isize - n as isize).abs() > 1 {
+        return false;
+    }
+
+    let mut i = 0;
+    let mut j = 0;
+    let mut diff = 0;
+
+    while i < m && j < n {
+        if a[i].to_ascii_lowercase() == b[j].to_ascii_lowercase() {
+            i += 1;
+            j += 1;
+        } else {
+            diff += 1;
+            if diff > 1 {
+                return false;
+            }
+            if m > n {
+                i += 1;
+            } else if n > m {
+                j += 1;
+            } else {
+                // Check single transposition (e.g. "teh" vs "the")
+                if i + 1 < m
+                    && j + 1 < n
+                    && a[i].to_ascii_lowercase() == b[j + 1].to_ascii_lowercase()
+                    && a[i + 1].to_ascii_lowercase() == b[j].to_ascii_lowercase()
+                {
+                    i += 2;
+                    j += 2;
+                } else {
+                    i += 1;
+                    j += 1;
+                }
+            }
+        }
+    }
+
+    if i < m || j < n {
+        diff += 1;
+    }
+
+    diff <= 1
+}
+
+fn is_word_match(doc_word: &str, query_word: &str) -> bool {
+    let d = doc_word.as_bytes();
+    let q = query_word.as_bytes();
+
+    if d.is_empty() || q.is_empty() {
+        return false;
+    }
+
+    // 1. Direct prefix match (e.g. "microservice" starts with "micro")
+    if d.len() >= q.len() && d[..q.len()].eq_ignore_ascii_case(q) {
+        return true;
+    }
+
+    // 2. Fuzzy prefix match with Levenshtein edit distance <= 1 (e.g. "archtecture" vs "architecture")
+    let q_len = q.len();
+    let min_k = q_len.saturating_sub(1);
+    let max_k = (q_len + 1).min(d.len());
+
+    for k in min_k..=max_k {
+        if edit_distance_le_one(&d[..k], q) {
+            return true;
+        }
+    }
+    false
+}
+
+fn find_matches_in_text(text: &str, query: &str) -> Vec<Range<usize>> {
+    let query_words: Vec<&str> = query.split_whitespace().collect();
+    if query_words.is_empty() {
+        return Vec::new();
+    }
+
+    let mut matches = Vec::new();
+    let mut word_start: Option<usize> = None;
+
+    for (byte_idx, ch) in text.char_indices() {
+        if ch.is_alphanumeric() {
+            if word_start.is_none() {
+                word_start = Some(byte_idx);
+            }
+        } else if let Some(start) = word_start {
+            let word = &text[start..byte_idx];
+            if query_words.iter().any(|qw| is_word_match(word, qw)) {
+                matches.push(start..byte_idx);
+            }
+            word_start = None;
+        }
+    }
+    if let Some(start) = word_start {
+        let word = &text[start..];
+        if query_words.iter().any(|qw| is_word_match(word, qw)) {
+            matches.push(start..text.len());
+        }
+    }
+
+    matches
+}
+
+fn push_sanitized(out: &mut String, text: &str) {
+    let mut prev_space = out.ends_with(' ');
+    for c in text.chars() {
+        if c.is_whitespace() {
+            if !prev_space && !out.is_empty() {
+                out.push(' ');
+                prev_space = true;
+            }
+        } else {
+            out.push(c);
+            prev_space = false;
+        }
+    }
+}
+
+/// Formats a single-line preview centered around the first match
+fn format_centered_snippet(text: &str, matches: &[Range<usize>]) -> Option<String> {
+    if text.trim().is_empty() {
+        return None;
+    }
+
+    if matches.is_empty() {
+        let trimmed = text.trim();
+        let cleaned = trimmed.trim_start_matches(|c: char| c == '#' || c == '-' || c == '>' || c == ' ');
+        if cleaned.is_empty() {
+            return None;
+        }
+        let mut snippet = String::with_capacity(84);
+        let mut chars = cleaned.chars();
+        for _ in 0..80 {
+            if let Some(c) = chars.next() {
+                snippet.push(if c == '\n' || c == '\r' { ' ' } else { c });
+            } else {
+                break;
+            }
+        }
+        if chars.next().is_some() {
+            snippet.push_str("...");
+        }
+        return Some(snippet);
+    }
+
+    let first_match = &matches[0];
+    let total_bytes = text.len();
+
+    let start_target = first_match.start.saturating_sub(30);
+    let end_target = (first_match.end + 60).min(total_bytes);
+
+    let mut snippet_start = start_target;
+    while snippet_start > 0 && !text.is_char_boundary(snippet_start) {
+        snippet_start -= 1;
+    }
+    if snippet_start > 0 {
+        if let Some(pos) = text[snippet_start..first_match.start].find(char::is_whitespace) {
+            snippet_start += pos + 1;
+        }
+    }
+
+    let mut snippet_end = end_target;
+    while snippet_end < total_bytes && !text.is_char_boundary(snippet_end) {
+        snippet_end += 1;
+    }
+    if snippet_end < total_bytes {
+        if let Some(pos) = text[first_match.end..snippet_end].rfind(char::is_whitespace) {
+            snippet_end = first_match.end + pos;
+        }
+    }
+
+    let mut result = String::with_capacity(128);
+    if snippet_start > 0 {
+        result.push_str("... ");
+    }
+
+    let mut curr = snippet_start;
+    for m in matches {
+        if m.end <= snippet_start || m.start >= snippet_end {
+            continue;
+        }
+        let term_start = m.start.max(snippet_start);
+        let term_end = m.end.min(snippet_end);
+
+        if term_start > curr {
+            push_sanitized(&mut result, &text[curr..term_start]);
+        }
+        result.push_str("<b>");
+        result.push_str(&text[term_start..term_end]);
+        result.push_str("</b>");
+        curr = term_end;
+    }
+
+    if curr < snippet_end {
+        push_sanitized(&mut result, &text[curr..snippet_end]);
+    }
+
+    if snippet_end < total_bytes {
+        result.push_str(" ...");
+    }
+
+    Some(result.trim().to_string())
+}
+
 // [READ] 쿼리로 문서를 검색하는 함수 (관련도 순)
 pub fn search_documents(query: String, top_k: usize) -> Result<Vec<SearchResult>> {
     with_api(|api| {
@@ -236,9 +448,13 @@ pub fn search_documents(query: String, top_k: usize) -> Result<Vec<SearchResult>
             .into_iter()
             .map(|(score, doc_address)| {
                 let retrieved_doc = searcher.doc::<TantivyDocument>(doc_address)?;
+                let doc = api.extract_document(&retrieved_doc);
+                let matches = find_matches_in_text(&doc.content, &query);
+                let snippet = format_centered_snippet(&doc.content, &matches);
                 Ok(SearchResult {
                     score,
-                    doc: api.extract_document(&retrieved_doc),
+                    doc,
+                    snippet,
                 })
             })
             .collect()
@@ -396,6 +612,50 @@ mod tests {
         // 4. top_k = 0 should return empty list without crashing
         let res = search_documents("meeting".to_string(), 0).unwrap();
         assert_eq!(res.len(), 0);
+
+        // 5. Snippet generation test
+        let doc2 = Document {
+            id: "doc2".to_string(),
+            title: "Project Design".to_string(),
+            content: "First paragraph. Second paragraph talking about system modularity details. Third conclusion.".to_string(),
+            preview_text: "Project design preview".to_string(),
+            is_pinned: false,
+            updated_at: 101,
+        };
+        add_document(doc2).unwrap();
+        let res = search_documents("modularity".to_string(), 10).unwrap();
+        assert_eq!(res.len(), 1);
+        assert_eq!(res[0].doc.id, "doc2");
+        assert!(res[0].snippet.is_some(), "Snippet should be generated");
+        let snip = res[0].snippet.as_ref().unwrap();
+        assert!(snip.contains("<b>modularity</b>"), "Snippet must contain the tagged matched term");
+
+        // 6. Prefix & Typo snippet tests
+        let doc3 = Document {
+            id: "doc3".to_string(),
+            title: "Database Performance".to_string(),
+            content: "# Database Performance\nHigh performance search engines rely on inverted indexes.\n\nMicroservice architecture enables horizontal scalability. In addition, microservice reliability is critical.\n\n# Benchmarks".to_string(),
+            preview_text: "# Database Performance preview".to_string(),
+            is_pinned: false,
+            updated_at: 102,
+        };
+        add_document(doc3).unwrap();
+
+        // 6a. Prefix "micro" matches "Microservice" and produces centered snippet
+        let res_prefix = search_documents("micro".to_string(), 10).unwrap();
+        assert_eq!(res_prefix.len(), 1);
+        assert!(res_prefix[0].snippet.is_some());
+        let snip_prefix = res_prefix[0].snippet.as_ref().unwrap();
+        assert!(snip_prefix.contains("<b>Microservice</b>"));
+        assert!(!snip_prefix.starts_with("# Database Performance"), "Snippet should center on the match, not the doc start");
+
+        // 6b. Typo "archtecture" (missing 'i') matches "architecture" and produces centered snippet
+        let res_typo = search_documents("archtecture".to_string(), 10).unwrap();
+        assert_eq!(res_typo.len(), 1);
+        assert!(res_typo[0].snippet.is_some());
+        let snip_typo = res_typo[0].snippet.as_ref().unwrap();
+        assert!(snip_typo.contains("<b>architecture</b>"));
+        assert!(!snip_typo.starts_with("# Database Performance"));
 
         let _ = std::fs::remove_dir_all(path);
     }

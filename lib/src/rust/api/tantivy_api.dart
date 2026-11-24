@@ -4,9 +4,10 @@
 // ignore_for_file: invalid_use_of_internal_member, unused_import, unnecessary_import
 
 import '../frb_generated.dart';
+
 import 'package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart';
 
-// These functions are ignored because they are not marked as `pub`: `build_schema`, `extract_document`, `find_by_id`, `id_term`, `is_current_schema`, `searcher`, `to_tantivy_doc`, `upsert`, `with_api`
+// These functions are ignored because they are not marked as `pub`: `build_schema`, `extract_document`, `find_by_id`, `find_matches_in_text`, `format_centered_snippet`, `id_term`, `is_current_schema`, `is_word_match`, `levenshtein`, `searcher`, `to_tantivy_doc`, `upsert`, `with_api`
 // These types are ignored because they are neither used by any `pub` functions nor (for structs and enums) marked `#[frb(unignore)]`: `TantivyApi`
 // These function are ignored because they are on traits that is not defined in current crate (put an empty `#[frb]` on it to unignore): `clone`, `clone`, `fmt`, `fmt`
 
@@ -96,11 +97,12 @@ class Document {
 class SearchResult {
   final double score;
   final Document doc;
+  final String? snippet;
 
-  const SearchResult({required this.score, required this.doc});
+  const SearchResult({required this.score, required this.doc, this.snippet});
 
   @override
-  int get hashCode => score.hashCode ^ doc.hashCode;
+  int get hashCode => score.hashCode ^ doc.hashCode ^ snippet.hashCode;
 
   @override
   bool operator ==(Object other) =>
@@ -108,5 +110,6 @@ class SearchResult {
       other is SearchResult &&
           runtimeType == other.runtimeType &&
           score == other.score &&
-          doc == other.doc;
+          doc == other.doc &&
+          snippet == other.snippet;
 }
